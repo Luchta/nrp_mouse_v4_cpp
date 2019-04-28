@@ -258,9 +258,9 @@ void mouse_ui::walking(void)
 
         switch(choicew) {
         case 'w':   //forward walking
-            //maus.ReceiveMsg(mouse_com::Trott, PaceTime);
+            maus.ReceiveMsg(mouse_com::Trott, PaceTime);
             //maus.setConsoleCcmnd(Ccmnd((int)mouse_com::Trott, PaceTime));
-            maus.setConsoleCcmnd(mouse_com::Trott, PaceTime);
+            //maus.setConsoleCcmnd(mouse_com::Trott, PaceTime);
             break;
         case 's':   //stop walking
             maus.ReceiveMsg(mouse_com::StopAll);

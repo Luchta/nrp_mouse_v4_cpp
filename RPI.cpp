@@ -142,8 +142,6 @@ void CMouseLeg::ProcessMsg(typCmd cmd, int val1, int val2, int val3)  // state m
 
 void CMouseLeg::MoveTo(double x, double y, int time)      // direkt single step to x/y, no trajectory, 
 { 
-    time++; //test
-
     vx = vy = 0;
     step = stepcount = 0;   // muss, weil auch MausInit über PosReached StepNext aufruft!!
     jobTime = time;
