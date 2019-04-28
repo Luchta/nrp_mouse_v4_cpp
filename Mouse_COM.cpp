@@ -23,8 +23,12 @@
 #define MIN_STREAM_ID 71
 #define MAX_STREAM_ID 74
 
+//Debugging Mode
+#define DEBUG true
+
 mouse_com::mouse_com()
 {
+    if(DEBUG){std::cout << "mouse_com init\n";}
     InitRPI();
     setup_uart_read();
     setup_uart_send();
@@ -42,7 +46,7 @@ void mouse_com::startThread() {
     std::cout << "starting UART and MOUSE thread"<<std::endl;
     t1 = std::thread ([=] { MouseInputLoop(); });
     t1.detach();
-    std::cout << "Walker thread detached"<<std::endl;
+    std::cout << "Thread detached"<<std::endl;
 }
 
 //void mouse_com::setConsoleCcmnd(Ccmnd cmd){
@@ -102,7 +106,8 @@ void mouse_com::setup_uart_send()
     if (uart0_sendstream == -1)
     {
         //ERROR - CAN'T OPEN SERIAL PORT
-        printf("Error - Unable to open UART.  Ensure it is not in use by another application\n");
+        std::cerr << "Error - Unable to open UART.  Ensure it is not in use by another application!" << std::endl;
+        //printf("Error - Unable to open UART.  Ensure it is not in use by another application\n");
     }
 
     //CONFIGURE THE UART
@@ -155,7 +160,8 @@ void mouse_com::setup_uart_read()
     if (uart0_readstream == -1)
     {
         //ERROR - CAN'T OPEN SERIAL PORT
-        printf("Error - Unable to open UART.  Ensure it is not in use by another application\n");
+        std::cerr << "Error - Unable to open UART.  Ensure it is not in use by another application!" << std::endl;
+        //printf("Error - Unable to open UART.  Ensure it is not in use by another application\n");
     }
 
     //CONFIGURE THE UART
@@ -186,12 +192,14 @@ void mouse_com::ProcessSpine(mouse_com::typCmd cmd, int val1, int val2, int val3
     switch (cmd)
     {
     case SetMotorPos:
-        mouse_com::sendMotor_Serial(val1, val2, val3);
+        mouse_com::sendMotor_Serial(val1, val2, val3); //takes ID, Pos, Speed
         break;
     case GetSensorValue:
+        mouse_com::sendSensorRequest(val1); //only takes ID
         break;
     default:
         //NOOOOOOO!
+        std::cerr << "Error - Unknwon UART Send Request!" << std::endl;
         break;
     }
 
@@ -204,6 +212,9 @@ bool mouse_com::sendMotor_Serial(int id, int pos, int speed)
     char buffer [18];
     l = sprintf (buffer, "%d %d %d", id, pos, speed);
 
+    if (DEBUG){
+        std::cout.write(&buffer[0], l);
+    }
 
     //----- TX BYTES -----
 
@@ -213,12 +224,14 @@ bool mouse_com::sendMotor_Serial(int id, int pos, int speed)
         //int count = write(uart0_filestream, &tx_buffer[0], (p_tx_buffer - &tx_buffer[0])); //Filestream, bytes to write, number of bytes to write
         if (count < 0)
         {
-            printf("UART TX error\n");
+            //printf("UART TX error\n");
+            std::cerr << "Error - UART TX ERROR" << std::endl;
             return false;
         }
     }
     else {
-        printf("Error: UART not opened\n");
+        //printf("Error: UART not opened\n");
+        std::cerr << "Error - UART Sendstream not opened!" << std::endl;
         return false;
     }
     return true;
@@ -238,12 +251,14 @@ bool mouse_com::sendStreamRequest(int id, int frequency, int amount)
         int count = write(uart0_sendstream, &buffer[0], l);		//Filestream, bytes to write, number of bytes to write
         if (count < 0)
         {
-            printf("UART TX error\n");
+            //printf("UART TX error\n");
+            std::cerr << "Error - UART TX ERROR" << std::endl;
             return false;
         }
     }
     else {
-        printf("Error: UART not opened\n");
+        //printf("Error: UART not opened\n");
+        std::cerr << "Error - UART Sendstream not opened!" << std::endl;
         return false;
     }
     return true;
@@ -264,13 +279,14 @@ bool mouse_com::sendSensorRequest(int id)
         int count = write(uart0_sendstream, &buffer[0], l);		//Filestream, bytes to write, number of bytes to write
         if (count < 0)
         {
-            printf("UART TX error\n");
+            //printf("UART TX error\n");
+            std::cerr << "Error - UART TX ERROR" << std::endl;
             return false;
         }
     }
     else {
         //printf("Error: UART not opened\n");
-        std::cerr << "Error: UART not opened!" << std::endl;
+        std::cerr << "Error: UART Sendstream not opened!" << std::endl;
         return false;
     }
     return true;
@@ -346,25 +362,24 @@ int mouse_com::recieveData()
                     //stream IDs 71-74 (knees)
                 }
 
+                //return 1;
+            }
+            //check for Console Commands
 
-
-
-            //return 1;
+            //load atomic struct
+            Ccmnd tmp = consoleCmnd.load();
+            //check for new commands
+            if(tmp.valid)
+            {
+                tmp.valid = false;
+                //consoleCmnd.store(tmp);
+                ReceiveMsg((typCmd)tmp.command, tmp.val1, tmp.val2, tmp.val3);
+            }
         }
-        //check for Console Commands
-
-        //load atomic struct
-        Ccmnd tmp = consoleCmnd.load();
-        //check for new commands
-        if(tmp.valid)
-        {
-            tmp.valid = false;
-            //consoleCmnd.store(tmp);
-            ReceiveMsg((typCmd)tmp.command, tmp.val1, tmp.val2, tmp.val3);
-        }
+        return 0;
+    } else {
+        std::cerr << "Error: UART Readstream not opened!" << std::endl;
     }
-    return 0;
-}
-return -1;
+    return -1;
 }
 

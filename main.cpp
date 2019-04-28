@@ -5,7 +5,6 @@
 
 int main(void) {
     std::cout << "Guten Morgen Ihr Waschlappen!\n";
-    std::cout << "Starting Init"<<std::endl;
     CRPI maus; //Maus Objekt mit allem
     mouse_ui mouse_menu(maus); // User Interface Menu
 
