@@ -14,10 +14,8 @@
 #include <iostream>
 #include <cstdlib>
 #include <string>
+#include "RPI.h"
 
-//#include "mraa.hpp"
-//mouse includes
-//#include "NRPMouse.h"
 
 //Constants
 #define ALLLEGS 0
@@ -33,34 +31,42 @@ class mouse_ui
 
 public:
 
-// Constructor and destructor
-mouse_ui();
-~mouse_ui(){} //
+    // Constructor and destructor
+    mouse_ui(CRPI& ms) : maus(ms)
+    {
+        std::cout << "Creating Mouse_Setup"<<std::endl;
+    }
 
-void mainMenu(void);                    //main Menu starter
+    virtual ~mouse_ui(){} //
 
-//settings
-//void init(void);                        //initialization of servo mode, limits and positions
-void readInit(void);                    //read position init file
+    void mainMenu(void);                    //main Menu starter
+
+    //settings
+    //void init(void);                        //initialization of servo mode, limits and positions
+    void readInit(void);                    //read position init file
 
 
 private:
-//GPIO Control
-void gpio(void);                        //menu
-void sense(void);
+    //Variables
+    CRPI& maus;
 
-//walking test and Control
-void walking(void);                     //menu
-void walkFwd(int side);
-void legCtrl(int pos);
-void legSetup(void);
+    //Functions
+    //GPIO Control
+    void gpio(void);                        //menu
+    void sense(void);
 
-//Servo Control
-void servos(void);                      //menu
-void setServoAngle(void);               //setting servo angles (servo setting in the menu)
-void setServoDutycycle(void);           //setting of the servo dutycycle
+    //walking test and Control
+    void walking(void);                     //menu
+    void walkFwd(int side);
+    void legCtrl(int pos);
+    void legSetup(void);
 
-//legservo intToServo(int pin);
-//leg intToLeg(int pin);
+    //Servo Control
+    void servos(void);                      //menu
+    void setServoAngle(void);               //setting servo angles (servo setting in the menu)
+    void setServoDutycycle(void);           //setting of the servo dutycycle
+
+    //legservo intToServo(int pin);
+    //leg intToLeg(int pin);
 
 };

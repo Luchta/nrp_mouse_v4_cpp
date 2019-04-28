@@ -16,7 +16,8 @@
 #define uStepResolution  pRpi->mcs.uStepResolution
 #define uFrontLegStart   pRpi->mcs.uFrontLegStart 
 #define uHindLegStart    pRpi->mcs.uHindLegStart  
-#define uStepWidth       pRpi->mcs.uStepWidth     
+#define uStepLengthF      pRpi->mcs.uStepLengthF
+#define uStepLengthH      pRpi->mcs.uStepLengthH
 #define uWalkLevel       pRpi->mcs.uWalkLevel     
 #define uPawLift         pRpi->mcs.uPawLift       
 #define bSingleStep      pRpi->mcs.bSingleStep
@@ -34,19 +35,13 @@ CString CMouseCtrlBase::MsgToString(typDest dest, typCmd cmd, int val1, int val2
 }
 #endif
 
-//UART-Schnittstelle
-void ProcessSpine(CMouseCtrlBase::typCmd cmd, int val1, int val2, int val3)
-{
-
-}
-
 // Sendfunktion für alle RPI-internen Objekte untereinander und Richtung UART
 void CMouseCtrlBase::SendMsg(typDest dest, typCmd cmd, int val1, int val2, int val3)   
 {  
   m_uReplies = 0;      // Empfangszähler rücksetzen
 
   if (dest==Spine) {   // und raus.
-    //LogMessage(MsgToString(dest, cmd, val1,val2,val3));    // Alles was rausgeht loggen
+    LogMessage(MsgToString(dest, cmd, val1,val2,val3));    // Alles was rausgeht loggen
     ProcessSpine(cmd, val1, val2, val3);     // hier Windows-Simulation,   in echt dann die UART-Schnittstelle
   }
   else                 // sonst interne Kommunikation
@@ -65,7 +60,7 @@ void CRPI::ReceiveMsg(typCmd cmd, int val1, int val2, int val3)
     break;
 
     case PosReached:   // die von Spine nur mit Cmd, 
-    case Sensor_Value: //    hier ersma Receiver ermitteln
+    case SensorValue:  //    hier ersma Receiver ermitteln
       DispatchMsg(LegFromMotId(val1), cmd, val1, val2, val3); 
     break;
   }
@@ -75,7 +70,7 @@ void CRPI::ReceiveMsg(typCmd cmd, int val1, int val2, int val3)
 // Message dispatcher RPI internal between all rpi members
 void CRPI::DispatchMsg(typDest dest, typCmd cmd, int val1, int val2, int val3)   
 {
-  //LogMessage(MsgToString(dest, cmd, val1,val2,val3));     // log all received messages
+  LogMessage(MsgToString(dest, cmd, val1,val2,val3));     // log all received messages
 
   switch (dest) {
     case Ctrl:                    // hier ersma Blitztest, eigentlich über Ctrl-Modul oder Brause über alle Items
@@ -107,18 +102,17 @@ void CMouseLeg::ProcessMsg(typCmd cmd, int val1, int val2, int val3)  // state m
           MoveTo(val1, val2, val3);  // x/y, time
         break;
 
-        case StepLeg:   // From MousCtrl: val1 war bein (0-3)
+        case StepLeg:   // stepped move
           StepStart(val1, val2, val3); 
         break;
 
         case PosReached:
-          if (++m_uReplies==m_uExpReplies) {
-            if (!StepNext())
-              SendMsg(Ctrl, StepDone, pRpi->LegFromMotId(MotBase)) ; // Quit to MousWalk
-          }
+          if (++m_uReplies==m_uExpReplies &&  // beide Motoren abwarten
+              !StepNext())                    // Achtung: das zieht auch bei MoveTo == single step!
+            SendMsg(Ctrl, StepDone, pRpi->LegFromMotId(MotBase)) ; // Quit to CTrott
         break;
 
-        case Sensor_Value:
+        case SensorValue:
         break;
       }
     //break;
@@ -139,12 +133,13 @@ void CMouseLeg::ProcessMsg(typCmd cmd, int val1, int val2, int val3)  // state m
 
 void CMouseLeg::MoveTo(double x, double y, int time)      // direkt single step to x/y, no trajectory, 
 { 
-  vx = vy = 0;  //step = 0; stepcount = 1; 
+  vx = vy = 0;  step = stepcount = 0;   // muss, weil auch MausInit über PosReached StepNext aufruft!!
   jobTime = time;  
   ptLeg = CKoord(x,y);       
   SetPosition(NextWayPoint()); 
 }
 
+#ifdef alt  // ausführlich getestet, aber jeder Punkt bei Auftrag gerechnet
 void CMouseLeg::StepStart(double x, double y, int time)   // step mode by trajectory
 { 
   step = 0;                      // cast: Abschneiden gewollt s. jobTime
@@ -178,10 +173,53 @@ CLegPos CMouseLeg::NextWayPoint()
 
 void CMouseLeg::SetPosition(CLegPos ang) 
 { 
-  m_uExpReplies = 2;                  // cast: 10ntel Grad reichen
+  m_uExpReplies = 2;                     // cast: 10ntel Grad reichen
   SendMsg(Spine, SetMotorPos, MotBase,   (int)ang.leg,  jobTime);  m_uExpReplies -= m_uReplies;  // falls rekursive Sofortantwort von SendMsg (nur Simulation!)
   SendMsg(Spine, SetMotorPos, MotBase+1, (int)ang.coil, jobTime);      
 }
+#else
+
+// Punkte werden im Voraus gerechnet (dgNext), während der Motor läuft, besser
+void CMouseLeg::StepStart(double x, double y, int time)   // step mode by trajectory
+{ 
+  step = 0;                              // cast: Abschneiden gewollt s. jobTime
+  stepcount = (int)abs((long long)(x-ptLeg.x)/uStepResolution);  // nur x, die Maus läuft ja waagerecht.
+  if (stepcount <= 1) 
+    MoveTo(x, y, time);                  // if Dist < Resolution then Singlestep.
+  else {                                 
+    jobTime = time/stepcount;            // jobtime in ms
+    vx = (x-ptLeg.x)/stepcount;          // compute step vector from known position (!)
+    vy = (y-ptLeg.y)/stepcount;           
+    dgNext = NextWayPoint();             // first step of kinematik move
+    StepNext();                          // ... ausgeben und neuen berechnen
+  }
+}
+
+bool CMouseLeg::StepNext() 
+{
+  if (++step > stepcount) return false;  // fertig
+  SetPosition(dgNext);                   // vorausberechneten Punkt ausgeben
+  if (step < stepcount)                  // wenn nicht letzter Punkt:
+    dgNext = NextWayPoint();             //   neuen Punkt berechnen, solange Motor läuft 
+  return true;                           // weiter gehts       
+}
+
+CLegPos CMouseLeg::NextWayPoint()
+{    
+  double X = ptLeg.x+vx, Y = ptLeg.y+vy;        // Nächsten Punkt ab current ptLeg errechnen                 
+  if (vx<0 && step<stepcount-1) Y += uPawLift;  // Rückweg; 1 cm anheben, letzter Step wieder runter
+  return (MotBase%10 < 3) ? ikforeleg(X, Y, side) 
+                          : ikhindleg(X, Y, side);
+}
+
+void CMouseLeg::SetPosition(CLegPos ang) 
+{ 
+  m_uExpReplies = 2;                  // cast: 10ntel Grad reichen
+  SendMsg(Spine, SetMotorPos, MotBase,   (int)ang.leg,  jobTime);  m_uExpReplies -= m_uReplies;  // falls rekursive Sofortantwort von SendMsg (nur Simulation!)
+  SendMsg(Spine, SetMotorPos, MotBase+1, (int)ang.coil, jobTime);    
+  ptLeg.x += vx;  ptLeg.y += vy;      // Vektor auf letzten Punkt addieren
+}
+#endif
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Walking class trott
@@ -190,27 +228,27 @@ static bool vorne=false;
 void CTrott::ProcessMsg(typCmd cmd, int val1, int val2, int val3)
 {
   switch (cmd) {
-    case InitMouse:
+    case InitMouse:            // rechtes Vorderbein vorne
       SendMsg(LegHL, MoveLeg,            uHindLegStart,  uWalkLevel, val1);  
-      SendMsg(LegHR, MoveLeg, uStepWidth+uHindLegStart,  uWalkLevel, val1); 
-      SendMsg(LegFL, MoveLeg, uStepWidth+uFrontLegStart, uWalkLevel, val1); 
+      SendMsg(LegHR, MoveLeg, uStepLengthH+uHindLegStart,  uWalkLevel, val1);
+      SendMsg(LegFL, MoveLeg, uStepLengthF+uFrontLegStart, uWalkLevel, val1);
       SendMsg(LegFR, MoveLeg,            uFrontLegStart, uWalkLevel, val1);  
-      m_uExpReplies=40;  vorne=true;
+      m_uExpReplies=40;  vorne=true;   // 40: damit StepDone nicht zum Schrittwechsel führt...!
     break;
 
     case Trott:
       uPaceTime = val1;
-      if (vorne) {
-        SendMsg(LegHL, StepLeg, uStepWidth+uHindLegStart,  uWalkLevel, uPaceTime); 
+      if (vorne) {             // Schritt linkes Vorderbein vor
+        SendMsg(LegHL, StepLeg, uStepLengthH+uHindLegStart,  uWalkLevel, uPaceTime);
         SendMsg(LegHR, StepLeg,            uHindLegStart,  uWalkLevel, uPaceTime);
         SendMsg(LegFL, StepLeg,            uFrontLegStart, uWalkLevel, uPaceTime);
-        SendMsg(LegFR, StepLeg, uStepWidth+uFrontLegStart, uWalkLevel, uPaceTime);  
+        SendMsg(LegFR, StepLeg, uStepLengthF+uFrontLegStart, uWalkLevel, uPaceTime);
         m_uExpReplies=4;  vorne=false; 
-      } else {                         
-        SendMsg(LegFL, StepLeg, uStepWidth+uFrontLegStart, uWalkLevel, uPaceTime);
-        SendMsg(LegFR, StepLeg,            uFrontLegStart, uWalkLevel, uPaceTime); 
-        SendMsg(LegHL, StepLeg,            uHindLegStart,  uWalkLevel, uPaceTime);
-        SendMsg(LegHR, StepLeg, uStepWidth+uHindLegStart,  uWalkLevel, uPaceTime);
+      } else {                 // Schritt rechtes Vorderbein vor
+         SendMsg(LegFL, StepLeg, uStepLengthF+uFrontLegStart, uWalkLevel, uPaceTime);
+         SendMsg(LegFR, StepLeg,            uFrontLegStart, uWalkLevel, uPaceTime); 
+         SendMsg(LegHL, StepLeg,            uHindLegStart,  uWalkLevel, uPaceTime);
+         SendMsg(LegHR, StepLeg, uStepLengthH+uHindLegStart,  uWalkLevel, uPaceTime);
         m_uExpReplies=4;  vorne=true;
       }
     break;
@@ -228,5 +266,3 @@ void CTrott::ProcessMsg(typCmd cmd, int val1, int val2, int val3)
 
 // finito basta
 //////////////////////// <>  ||
-
-

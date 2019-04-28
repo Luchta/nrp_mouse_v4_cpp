@@ -2,29 +2,76 @@
 #define SERIAL_COM_H
 
 #include <thread>
+#include <atomic>
+
+//#include "RPI.h"
+
+/*
+class Ccmnd
+{
+public:
+    Ccmnd(){}
+
+    Ccmnd(int cmd, int v1=0, int v2=0, int v3=0){
+        val1 = v1;
+        val2 = v2;
+        val3 = v3;
+        command = cmd;
+        valid = true;
+    }
+
+    bool valid = false;
+    int val1, val2, val3;
+    int command;
+};
+*/
+struct Ccmnd
+{
+    bool valid;
+    int val1, val2, val3;
+    int command; //FIXIT for TypCmd
+};
 
 
-#include "RPI.h"
+class CMousCtrlSet;
+
 
 class mouse_com
 {
 public:
     mouse_com();
-    ~ mouse_com();
+
+    virtual ~mouse_com();
+
+    typedef enum Commmands{ SetMotorPos, PosReached, GetSensorValue, SensorValue,   // commands spine
+                            MoveLeg, StepLeg, StepDone,                                // commands rpi internal
+                            InitMouse, Trott, StopAll } typCmd;                        // commands from shell
 
     void startThread();
 
-#define MAX_RECIEVE_LENGTH 255
-#define MAX_ARG_LENGTH 4
-#define MAX_ARG_PER_LINE 4
+    // for thread communication
+    std::atomic<Ccmnd> consoleCmnd;
+
+    //Ccmnd consoleCcmnd;
+
+    //void setConsoleCcmnd(Ccmnd cmd);
+    void setConsoleCcmnd(typCmd cmd, int val1=0, int val2=0, int val3=0);
+
+
+protected:
+    virtual void ProcessSpine(typCmd cmd, int val1, int val2, int val3);
+    virtual CMousCtrlSet& InitRPI(){}
+    virtual void ReceiveMsg(typCmd cmd, int val1=0, int val2=0, int val3=0) {}
 
 private:
+
     std::thread t1; //waiting loop thread
     // UART STREAMS
     int uart0_readstream = -1;
     int uart0_sendstream = -1;
     //Variables
-    CRPI rpi;
+    //CRPI rpi;
+
 
     void setup_uart_send(); //sets up uart for read and write
     void setup_uart_read(); //sets up uart for read and write
@@ -38,6 +85,7 @@ private:
     //recieve returns amount of arguments, 0 for nothing to read, -1 for error
     int recieveData(); // give array with MAX_ARG_LENGTH
 };
+
 
 
 #endif // SERIAL_COM_H

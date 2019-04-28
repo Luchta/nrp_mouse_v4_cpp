@@ -10,8 +10,6 @@
 
 
 #include "Mouse_UI.h"
-#include "Mouse_COM.h"
-#include <atomic>
 
 
 //needed variables and objects
@@ -20,10 +18,7 @@
 static bool isgood = false;
 
 
-mouse_ui::mouse_ui()
-{
-    std::cout << "Creating Mouse_Setup"<<std::endl;
-}
+
 
 
 ///****************************************************************************************************************************************
@@ -230,6 +225,7 @@ void mouse_ui::walking(void)
 {
     char choicew;
     int done = 0, slow = 1;
+    int PaceTime = 700; // later in global init!!!
 
     do {
         std::cout<<"+++++++++++++++++++++++++++++++++++"<<std::endl;
@@ -246,10 +242,10 @@ void mouse_ui::walking(void)
         std::cout<<"<a> left"<<std::endl;
         std::cout<<"<d> right"<<std::endl;
         std::cout<<"<x> backwards"<<std::endl;
-        std::cout<<"<r> set slowness"<<std::endl;
+        std::cout<<"<r> set pace time"<<std::endl;
         std::cout<<"<i> init"<<std::endl;
-        std::cout<<"<1> start walker"<<std::endl;
-        std::cout<<"<0> stop walker"<<std::endl;
+        //std::cout<<"<1> start walker"<<std::endl;
+        //std::cout<<"<0> stop walker"<<std::endl;
         std::cout<<"<l> legs menu"<<std::endl;
         std::cout<<"<q> quit "<<std::endl;
 
@@ -263,41 +259,42 @@ void mouse_ui::walking(void)
 
         switch(choicew) {
         case 'w':   //forward walking
-            //gait.store(FORWARD);
+            //maus.ReceiveMsg(mouse_com::Trott, PaceTime);
+            //maus.setConsoleCcmnd(Ccmnd((int)mouse_com::Trott, PaceTime));
+            maus.setConsoleCcmnd(mouse_com::Trott, PaceTime);
             break;
         case 's':   //stop walking
-            //gait.store(STOP);
+            maus.ReceiveMsg(mouse_com::StopAll);
             break;
         case 'a':   //left courve
-            //gait.store(LEFT);
+            std::cout<<"currently not active"<<std::endl;
             break;
         case 'd':   //right curve
-            //gait.store(RIGHT);
+            std::cout<<"currently not active"<<std::endl;
             break;
         case 'x':   //backward walking
-            //gait.store(BACKWARD);
+            std::cout<<"currently not active"<<std::endl;
             break;
         case 'h':
-            //gait.store(HUMP);
+            std::cout<<"currently not active"<<std::endl;
             break;
         case 'i':
-            //gait.store(INIT);
-            //send_cmd.store(InitMouse);
+            maus.ReceiveMsg(mouse_com::InitMouse);
             break;
         case'y':
             //gait.store(GotoSTOP);
             break;
         case 'r':
             do{
-                std::cout << "slowness: ";
-                std::cin >> slow;
+                std::cout << "pace time: ";
+                std::cin >> PaceTime;
                 isgood = std::cin.good();
                 std::cin.clear();
                 std::cin.ignore(999999,'\n');
             } while (!isgood);
             //pace.store(slow);
             break;
-        case '1':
+        /*case '1':
             //gait.store(QUIT);
             usleep(10000);
             //gait.store(STOP);
@@ -305,9 +302,9 @@ void mouse_ui::walking(void)
             break;
         case'0':
             //gait.store(QUIT);
-            break;
+            break;*/
         case '2':
-            //gait.store(FWD2);
+            std::cout<<"currently not active"<<std::endl;
             break;
         case 'l':   //leg setup
             legSetup();

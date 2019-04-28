@@ -1,17 +1,16 @@
 #include <iostream>
 #include "Mouse_UI.h"
-#include "Mouse_COM.h"
+#include "RPI.h"
 
 
 int main(void) {
-    std::cout << "Hello Edison!\n";
+    std::cout << "Guten Morgen Ihr Waschlappen!\n";
     std::cout << "Starting Init"<<std::endl;
-    mouse_ui mouse_menu;
-    mouse_com communicator;
+    CRPI maus; //Maus Objekt mit allem
+    mouse_ui mouse_menu(maus); // User Interface Menu
 
-    communicator.startThread();
 
-    //mousetest.init();
+    maus.startThread();
 
     mouse_menu.mainMenu();
 

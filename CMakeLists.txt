@@ -1,6 +1,6 @@
-cmake_minimum_required(VERSION 2.8)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pthread")
-
+cmake_minimum_required(VERSION 3.1)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pthread -latomic")
+set (CMAKE_CXX_STANDARD 11)
 
 project(MauSim)
 
@@ -21,3 +21,14 @@ set( project_sources
 )
 
 add_executable(${PROJECT_NAME} ${project_sources})
+#add_executable (first first.cpp)
+set_target_properties (${PROJECT_NAME} PROPERTIES
+  CXX_STANDARD 11
+  CXX_STANDARD_REQUIRED TRUE
+  CXX_EXTENSIONS FALSE
+)
+#target_compile_definitions (first PRIVATE BOOST_ERROR_CODE_HEADER_ONLY)
+target_link_libraries (${PROJECT_NAME}
+    atomic
+    pthread
+)
