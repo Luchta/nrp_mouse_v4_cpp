@@ -44,7 +44,7 @@ void mouse_ui::mainMenu(void){
         std::cout << "<3> GPIO\n";
         std::cout << "<4> Sensors\n";
         std::cout << "<q> Quit\n";
-
+        return;
         do{
             std::cout << "choose: ";
             std::cin >> choice1;

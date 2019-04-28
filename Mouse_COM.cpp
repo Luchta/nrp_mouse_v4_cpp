@@ -53,6 +53,7 @@ void mouse_com::startThread() {
 void mouse_com::setConsoleCcmnd(typCmd cmd, int val1, int val2, int val3){
     Ccmnd tmp;
 
+    if (DEBUG){std::cout << "storing new console cmd!\n";}
     tmp.command = cmd;
     tmp.val1 = val1;
     tmp.val2 = val2;
@@ -106,7 +107,7 @@ void mouse_com::setup_uart_send()
     if (uart0_sendstream == -1)
     {
         //ERROR - CAN'T OPEN SERIAL PORT
-        std::cerr << "Error - Unable to open UART.  Ensure it is not in use by another application!" << std::endl;
+        std::cerr << "Error - Unable to open UART for Transmission!" << std::endl;
         //printf("Error - Unable to open UART.  Ensure it is not in use by another application\n");
     }
 
@@ -160,7 +161,7 @@ void mouse_com::setup_uart_read()
     if (uart0_readstream == -1)
     {
         //ERROR - CAN'T OPEN SERIAL PORT
-        std::cerr << "Error - Unable to open UART.  Ensure it is not in use by another application!" << std::endl;
+        std::cerr << "Error - Unable to open UART for Recieving!" << std::endl;
         //printf("Error - Unable to open UART.  Ensure it is not in use by another application\n");
     }
 
@@ -320,7 +321,9 @@ int mouse_com::recieveData()
             else if (rx_length == 0)
             {
                 //No data waiting
+                checkComndConsole(); //see if anything came through the console
                 return 0;
+
             }
             else
             {
@@ -364,22 +367,34 @@ int mouse_com::recieveData()
 
                 //return 1;
             }
-            //check for Console Commands
 
-            //load atomic struct
-            Ccmnd tmp = consoleCmnd.load();
-            //check for new commands
-            if(tmp.valid)
-            {
-                tmp.valid = false;
-                //consoleCmnd.store(tmp);
-                ReceiveMsg((typCmd)tmp.command, tmp.val1, tmp.val2, tmp.val3);
-            }
+            checkComndConsole(); //see if anything came through the console
         }
         return 0;
     } else {
         std::cerr << "Error: UART Readstream not opened!" << std::endl;
     }
+    checkComndConsole(); //see if anything came through the console
+
     return -1;
+}
+
+void mouse_com::checkComndConsole()
+{
+    //check for Console Commands
+    //load atomic struct
+    if (DEBUG){std::cout << "loading Console Cmd\n";}
+    Ccmnd tmp = consoleCmnd.load();
+    //check for new commands
+    if(tmp.valid)
+    {
+        if (DEBUG){std::cout << "new Console Cmd read: " << (typCmd)tmp.command << ";" << tmp.val1 << ";" << tmp.val2 << ";" << tmp.val3 <<"\n";}
+        //set false and store
+        tmp.valid = false;
+        consoleCmnd.store(tmp);
+
+        //send Message
+        ReceiveMsg((typCmd)tmp.command, tmp.val1, tmp.val2, tmp.val3);
+    }
 }
 

@@ -27,9 +27,9 @@ public:
 */
 struct Ccmnd
 {
-    bool valid;
-    int val1, val2, val3;
-    int command; //FIXIT for TypCmd
+    bool valid = true;
+    int val1 = 0, val2 = 0, val3 = 0;
+    int command = 7; //FIXIT for TypCmd
 };
 
 
@@ -84,6 +84,7 @@ private:
     bool sendSensorRequest(int id);
     //recieve returns amount of arguments, 0 for nothing to read, -1 for error
     int recieveData(); // give array with MAX_ARG_LENGTH
+    void checkComndConsole();
 };
 
 
