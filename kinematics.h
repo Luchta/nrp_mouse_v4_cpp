@@ -56,7 +56,7 @@ public:
       hrhip=3.5;       //effective radius of the pulley
       hahip=160.26;    //initial angle of string routed on the hip
       hksainit=40;
-    };
+    }
 
     void createWaypoints(int Ax, int Ay, int Bx, int By, int *waypoints, int lengths);
     CLegPos ikhindleg(double hx, double hy, char side);

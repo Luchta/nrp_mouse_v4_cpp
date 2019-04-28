@@ -51,7 +51,7 @@ void CMouseCtrlBase::SendMsg(typDest dest, typCmd cmd, int val1, int val2, int v
 
     if (dest==Spine) {   // und raus.
         LogMessage(MsgToString(dest, cmd, val1,val2,val3));    // Alles was rausgeht loggen
-        ProcessSpine(cmd, val1, val2, val3);     // hier Windows-Simulation,   in echt dann die UART-Schnittstelle
+        pRpi->ProcessSpine(cmd, val1, val2, val3);     // hier Windows-Simulation,   in echt dann die UART-Schnittstelle
     }
     else                 // sonst interne Kommunikation
         pRpi->DispatchMsg(dest, cmd, val1, val2, val3);
@@ -142,7 +142,10 @@ void CMouseLeg::ProcessMsg(typCmd cmd, int val1, int val2, int val3)  // state m
 
 void CMouseLeg::MoveTo(double x, double y, int time)      // direkt single step to x/y, no trajectory, 
 { 
-    vx = vy = 0;  step = stepcount = 0;   // muss, weil auch MausInit über PosReached StepNext aufruft!!
+    time++; //test
+
+    vx = vy = 0;
+    step = stepcount = 0;   // muss, weil auch MausInit über PosReached StepNext aufruft!!
     jobTime = time;
     ptLeg = CKoord(x,y);
     SetPosition(NextWayPoint());

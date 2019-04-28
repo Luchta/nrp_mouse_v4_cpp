@@ -29,9 +29,7 @@
 mouse_com::mouse_com()
 {
     if(DEBUG){std::cout << "mouse_com init\n";}
-    InitRPI();
-    setup_uart_read();
-    setup_uart_send();
+    //InitRPI();
 }
 
 mouse_com::~mouse_com()
@@ -48,6 +46,15 @@ void mouse_com::startThread() {
     t1.detach();
     std::cout << "Thread detached"<<std::endl;
 }
+
+void mouse_com::startUART()
+{
+    if(DEBUG){std::cout << "Setup UART\n";}
+    setup_uart_read();
+    setup_uart_send();
+}
+
+
 
 //void mouse_com::setConsoleCcmnd(Ccmnd cmd){
 void mouse_com::setConsoleCcmnd(typCmd cmd, int val1, int val2, int val3){
@@ -70,6 +77,8 @@ void mouse_com::setConsoleCcmnd(typCmd cmd, int val1, int val2, int val3){
 void mouse_com::MouseInputLoop()
 {
     bool OK = true; //for later Break criteria
+
+    usleep(600000);
 
     while(OK)
     {
@@ -215,6 +224,7 @@ bool mouse_com::sendMotor_Serial(int id, int pos, int speed)
 
     if (DEBUG){
         std::cout.write(&buffer[0], l);
+        std::cout << "\n";
     }
 
     //----- TX BYTES -----

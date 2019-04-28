@@ -27,7 +27,7 @@ public:
 */
 struct Ccmnd
 {
-    bool valid = true;
+    bool valid = false;
     int val1 = 0, val2 = 0, val3 = 0;
     int command = 7; //FIXIT for TypCmd
 };
@@ -48,6 +48,8 @@ public:
                             InitMouse, Trott, StopAll } typCmd;                        // commands from shell
 
     void startThread();
+
+    void startUART();
 
     // for thread communication
     std::atomic<Ccmnd> consoleCmnd;
@@ -77,6 +79,8 @@ private:
     void setup_uart_read(); //sets up uart for read and write
 
     void MouseInputLoop();
+
+
 
     //sending funtions return true on success
     bool sendMotor_Serial(int id, int pos, int speed);
