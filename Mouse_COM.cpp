@@ -319,6 +319,7 @@ int mouse_com::recieveData()
     //----- CHECK FOR ANY RX BYTES -----
     if (uart0_readstream != -1)
     {
+        // Read input while new data available
         while ((rx_length = read(uart0_readstream, (void*)rx_buffer, MAX_RECIEVE_LENGTH)) != 0)
         {
             //rx_length = read(uart0_readstream, (void*)rx_buffer, MAX_RECIEVE_LENGTH);		//Filestream, buffer to store in, number of bytes to read (max)
@@ -340,13 +341,17 @@ int mouse_com::recieveData()
                 //Bytes received
                 rx_buffer[rx_length] = '\0';
                 //DEBUGGIN-Comment OUT!
-                if (DEBUG){printf("%i bytes read : %s\n", rx_length, rx_buffer);}
+                if (DEBUG){printf("RX - %i bytes read : %s\n", rx_length, rx_buffer);}
                 //parse to arguments
+                //reset i and count
+                i = 0;
+                count = 0;
                 //seperate string
                 char *token = strtok(rx_buffer, &separator);
-                while ((i < MAX_ARG_PER_LINE) && ((token = strtok(NULL, &separator)) != NULL))
+                while ((i < MAX_ARG_PER_LINE) && (token))
                 {
                     strcpy(newArg[i++], token);
+                    token = strtok(NULL, &separator);
                     count++;
                 }
                 //convert to int and store
@@ -355,13 +360,14 @@ int mouse_com::recieveData()
                     //no Arguments read || Error - should never be reached
                 }else {
                     for (i=0;i<count;i++) {
+                        if (DEBUG){printf("RX - argument %d = %s\n", i, newArg[i]);}
                         arguments[i] = atoi (newArg[i]);
                     }
                 }
                 //numArgs = count;
 
                 //DEBUG output converted inputs
-                if (DEBUG){printf("Recieved: ID: %d, val1: %d, val2: %d\n", arguments[0], arguments[1], arguments[2]);}
+                if (DEBUG){printf("RX - Recieved: ID: %d, val1: %d, val2: %d\n", arguments[0], arguments[1], arguments[2]);}
                 //check for Msg Type by ID range
                 if (arguments[0] >= MIN_SERVO_ID && arguments[0] <= MAX_SERVO_ID){
                     //motor IDs 11-14;21-24:31-35 (range 11-35)
