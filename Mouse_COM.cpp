@@ -220,7 +220,7 @@ bool mouse_com::sendMotor_Serial(int id, int pos, int speed)
     //------ FORM STRING------
     int l;
     char buffer [18];
-    l = sprintf (buffer, "%d %d %d", id, pos, speed);
+    l = sprintf (buffer, "%d %d %d\n", id, pos, speed);
 
     if (DEBUG){
         std::cout.write(&buffer[0], l);
@@ -253,7 +253,7 @@ bool mouse_com::sendStreamRequest(int id, int frequency, int amount)
     //------ CONVERT TO HEX AND FORM STRING------
     int l;
     char buffer [18];
-    l = sprintf (buffer, "%d %d %d", id, frequency, amount);
+    l = sprintf (buffer, "%d %d %d\n", id, frequency, amount);
 
     //----- TX BYTES -----
 
@@ -280,7 +280,7 @@ bool mouse_com::sendSensorRequest(int id)
     //------ CONVERT TO HEX AND FORM STRING------
     int l;
     char buffer [18];
-    l = sprintf (buffer, "%d", id);
+    l = sprintf (buffer, "%d\n", id);
 
 
     //----- TX BYTES -----
@@ -340,7 +340,7 @@ int mouse_com::recieveData()
                 //Bytes received
                 rx_buffer[rx_length] = '\0';
                 //DEBUGGIN-Comment OUT!
-                printf("%i bytes read : %s\n", rx_length, rx_buffer);
+                if (DEBUG){printf("%i bytes read : %s\n", rx_length, rx_buffer);}
                 //parse to arguments
                 //seperate string
                 char *token = strtok(rx_buffer, &separator);
@@ -360,17 +360,18 @@ int mouse_com::recieveData()
                 }
                 //numArgs = count;
 
-                //TODO PARSING BY ID WHICH MSG TYPE
-                //check for
+                //DEBUG output converted inputs
+                if (DEBUG){printf("Recieved: ID: %d, val1: %d, val2: %d\n", arguments[0], arguments[1], arguments[2]);}
+                //check for Msg Type by ID range
                 if (arguments[0] >= MIN_SERVO_ID && arguments[0] <= MAX_SERVO_ID){
                     //motor IDs 11-14;21-24:31-35 (range 11-35)
-                    ReceiveMsg(PosReached, arguments[0], arguments[1], 0);
+                    ReceiveMsg(PosReached, arguments[0], arguments[1]);
                 }else if (arguments[0] >= MIN_EVENT_ID && arguments[0] <= MAX_EVENT_ID) {
                     //event IDs 51-58
 
                 }else if (arguments[0] >= MIN_SENSOR_ID && arguments[0] <= MAX_SENSOR_ID) {
                     //sensor IDs 61-64 (knees)
-                    ReceiveMsg(SensorValue, arguments[0], arguments[1], 0);
+                    ReceiveMsg(SensorValue, arguments[0], arguments[1]);
                 }else if (arguments[0] >= MIN_STREAM_ID && arguments[0] <= MIN_STREAM_ID) {
                     //stream IDs 71-74 (knees)
                 }
