@@ -345,8 +345,8 @@ int mouse_com::recieveData()
                 //DEBUGGIN-Comment OUT!
                 if (DEBUG){printf("RX - %i bytes read : %s\n", rx_length, rx_buffer);}
                 
-		
-		//parse to arguments
+
+                //parse to arguments
                 //reset i and count
                 i = 0;
                 count = 0;
@@ -385,11 +385,16 @@ int mouse_com::recieveData()
                 }else if (arguments[0] >= MIN_STREAM_ID && arguments[0] <= MIN_STREAM_ID) {
                     //stream IDs 71-74 (knees)
                 }
-		
+
                 //return 1;
             }
 
             checkComndConsole(); //see if anything came through the console
+            //clear array
+            for (i=0;i<count;i++) {
+                arguments[i] = 0;
+            }
+
         }
         return 0;
     } else {
