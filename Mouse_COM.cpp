@@ -11,7 +11,7 @@
 
 //Parsing defines for command lengths
 #define MAX_RECIEVE_LENGTH 255
-#define MAX_ARG_LENGTH 10
+#define MAX_ARG_LENGTH 50
 #define MAX_ARG_PER_LINE 10
 //Defines for ID ranges
 #define MIN_SERVO_ID 11
@@ -112,7 +112,7 @@ void mouse_com::setup_uart_send()
     //											immediately with a failure status if the output can't be written immediately.
     //
     //	O_NOCTTY - When set and path identifies a terminal device, open() shall not cause the terminal device to become the controlling terminal for the process.
-    uart0_sendstream = open("/dev/ttyAMA0", O_WRONLY | O_NOCTTY | O_NDELAY);		//Open in non blocking read/write mode
+    uart0_sendstream = open("/dev/ttyAMA0", O_WRONLY | O_NOCTTY);		//Open in non blocking read/write mode
     if (uart0_sendstream == -1)
     {
         //ERROR - CAN'T OPEN SERIAL PORT
@@ -135,7 +135,8 @@ void mouse_com::setup_uart_send()
     options.c_cflag = B115200 | CS8 | CLOCAL | CREAD;		//<Set baud rate
     options.c_iflag = IGNPAR;
     options.c_oflag = 0;
-    options.c_lflag = 0;
+    // options.c_lflag = 0;
+    options.c_lflag = ICANON;
     tcflush(uart0_sendstream, TCIFLUSH);
     tcsetattr(uart0_sendstream, TCSANOW, &options);
 
@@ -189,7 +190,8 @@ void mouse_com::setup_uart_read()
     options.c_cflag = B115200 | CS8 | CLOCAL | CREAD;		//<Set baud rate
     options.c_iflag = IGNPAR;
     options.c_oflag = 0;
-    options.c_lflag = 0;
+    //options.c_lflag = 0;
+    options.c_lflag = ICANON;
     tcflush(uart0_readstream, TCIFLUSH);
     tcsetattr(uart0_readstream, TCSANOW, &options);
 
@@ -311,16 +313,16 @@ int mouse_com::recieveData()
     int arguments[MAX_ARG_PER_LINE] = {0};
     int i = 0;
     int count = 0;
-    int rx_length = 0;
+    int rx_length = -1;
     // Read up to 255 characters from the port if they are there
-    char rx_buffer[MAX_RECIEVE_LENGTH+1];
+    char rx_buffer[256];
     //int numArgs = 0;
 
     //----- CHECK FOR ANY RX BYTES -----
     if (uart0_readstream != -1)
     {
         // Read input while new data available
-        while ((rx_length = read(uart0_readstream, (void*)rx_buffer, MAX_RECIEVE_LENGTH)) != 0)
+        while ((rx_length = read(uart0_readstream, (void*)rx_buffer, 255)) != 0)
         {
             //rx_length = read(uart0_readstream, (void*)rx_buffer, MAX_RECIEVE_LENGTH);		//Filestream, buffer to store in, number of bytes to read (max)
             if (rx_length < 0)
@@ -342,7 +344,9 @@ int mouse_com::recieveData()
                 rx_buffer[rx_length] = '\0';
                 //DEBUGGIN-Comment OUT!
                 if (DEBUG){printf("RX - %i bytes read : %s\n", rx_length, rx_buffer);}
-                //parse to arguments
+                
+		
+		//parse to arguments
                 //reset i and count
                 i = 0;
                 count = 0;
@@ -381,7 +385,7 @@ int mouse_com::recieveData()
                 }else if (arguments[0] >= MIN_STREAM_ID && arguments[0] <= MIN_STREAM_ID) {
                     //stream IDs 71-74 (knees)
                 }
-
+		
                 //return 1;
             }
 
