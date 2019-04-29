@@ -11,8 +11,8 @@
 
 //Parsing defines for command lengths
 #define MAX_RECIEVE_LENGTH 255
-#define MAX_ARG_LENGTH 4
-#define MAX_ARG_PER_LINE 4
+#define MAX_ARG_LENGTH 10
+#define MAX_ARG_PER_LINE 10
 //Defines for ID ranges
 #define MIN_SERVO_ID 11
 #define MAX_SERVO_ID 35
@@ -308,7 +308,7 @@ int mouse_com::recieveData()
     //parsing variables
     char const separator = ' ';
     char newArg[MAX_ARG_PER_LINE][MAX_ARG_LENGTH];
-    int arguments[MAX_ARG_PER_LINE];
+    int arguments[MAX_ARG_PER_LINE] = {0};
     int i = 0;
     int count = 0;
     int rx_length = 0;
@@ -360,7 +360,7 @@ int mouse_com::recieveData()
                     //no Arguments read || Error - should never be reached
                 }else {
                     for (i=0;i<count;i++) {
-                        if (DEBUG){printf("RX - argument %d = %s\n", i, newArg[i]);}
+                        //if (DEBUG){printf("RX - argument %d = %s\n", i, newArg[i]);}
                         arguments[i] = atoi (newArg[i]);
                     }
                 }
