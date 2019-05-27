@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include "kinematics.h"
+#include "Kinematics.h"
 #ifdef _WINDOWS
 class mouse_com {
 public: mouse_com() {}
@@ -15,7 +15,7 @@ public: mouse_com() {}
 };
 
 #else
-#include "Mouse_COM.h"
+#include "MouseCom.h"
 #endif
 
 class CMousCtrlSet {
