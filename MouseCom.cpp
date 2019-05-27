@@ -381,7 +381,14 @@ int CMouseCom::recieveData()
                 //numArgs = count;
 
                 //DEBUG output converted inputs
-                if (DEBUG){printf("RX - Recieved: ID: %d, val1: %d, val2: %d\n", arguments[0], arguments[1], arguments[2]);}
+                if (DEBUG){
+                    printf("RX - Recieved %d Arguments:",count);
+                    for (int k = 0; k < count; ++k) {
+                        printf(" val%d: %d",count, arguments[k]);
+                    }
+                    printf("\n");
+                    printf("RX: Msg %c, Id: %d", arguments[0], arguments[1]);
+                }
                 //check for Msg Type
 
                 switch (arguments[0]) {
