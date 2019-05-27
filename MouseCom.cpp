@@ -1,8 +1,8 @@
 #include "MouseCom.h"
-//#include <stdio.h>
-#include <unistd.h>	//Used for UART
-#include <fcntl.h>	//Used for UART
-#include <termios.h>	//Used for UART
+
+#include <unistd.h>	//UART and usleep
+#include <fcntl.h>	//UART
+#include <termios.h>//UART
 #include <stdlib.h>
 #include <cstdlib>
 #include <cstring>
@@ -13,18 +13,11 @@
 #define MAX_RECIEVE_LENGTH 255
 #define MAX_ARG_LENGTH 50
 #define MAX_ARG_PER_LINE 10
-//Defines for ID ranges
-#define MIN_SERVO_ID 11
-#define MAX_SERVO_ID 35
-#define MIN_EVENT_ID 51
-#define MAX_EVENT_ID 58
-#define MIN_SENSOR_ID 61
-#define MAX_SENSOR_ID 64
-#define MIN_STREAM_ID 71
-#define MAX_STREAM_ID 74
 
 //Debugging Mode
 #define DEBUG true
+
+//PUBLIC/////////////////////////////////////////////////////////////////////////////////////////////
 
 CMouseCom::CMouseCom()
 {
@@ -54,9 +47,6 @@ void CMouseCom::startUART()
     setup_uart_send();
 }
 
-
-
-//void mouse_com::setConsoleCcmnd(Ccmnd cmd){
 void CMouseCom::setConsoleCcmnd(typCmd cmd, int val1, int val2, int val3){
     Ccmnd tmp;
 
@@ -72,8 +62,111 @@ void CMouseCom::setConsoleCcmnd(typCmd cmd, int val1, int val2, int val3){
     consoleCmnd.store(tmp);
 }
 
+//PROTECTED/////////////////////////////////////////////////////////////////////////////////////////////
 
-//Loop for recieving messages from UART
+//UART-Schnittstelle zu CRPI
+void CMouseCom::ProcessSpine(CMouseCom::typCmd cmd, int val1, int val2, int val3)
+{
+    switch (cmd)
+    {
+    case SetMotorPos:
+        CMouseCom::sendMotor_Serial(val1, val2, val3); //takes ID, Pos, Speed
+        break;
+    case GetSensorValue:
+        CMouseCom::sendSensorRequest(val1); //only takes ID
+        break;
+    case SetLed:
+        CMouseCom::setMotorLed(val1, val2);
+        break;
+    default:
+        //NOOOOOOO!
+        std::cerr << "Error - Unknwon UART Send Request!" << std::endl;
+        break;
+    }
+
+}
+
+//PRIVATE/////////////////////////////////////////////////////////////////////////////////////////////
+
+
+//Sending-------------------------------------------------------------------------------------------------
+
+bool CMouseCom::sendMotor_Serial(int id, int pos, int speed)
+{
+    //------ Calculate adequate centred Value ------
+    //FIXME!!
+    int CentreOffset = 1800;
+    pos = pos + CentreOffset;
+    //------ form string ------
+    int l;
+    char buffer [18];
+    //string: "A ID POS SPEED" Pos and Speed are 4digit hex numbers
+    l = sprintf (buffer, "A %02d %04x %04x\n", id, pos, speed);
+
+    if (DEBUG){
+        std::cout.write(&buffer[0], l);
+        std::cout << "\n";
+    }
+    //send and return
+    return sendUartMessage(buffer, l);
+
+}
+
+void CMouseCom::setMotorLed(int id, int state)
+{
+    //------ form string------
+    int l;
+    char buffer [18];
+    //string: ":ID!L=STATE"
+    l = sprintf (buffer, ":%02d!L=%d\n", id, state);
+    //send
+    sendUartMessage(buffer,l);
+}
+
+bool CMouseCom::sendStreamRequest(int id, int frequency, int amount)
+{
+    std::cerr << "Error - sendStreamRequest not implemented!" << std::endl;
+    return false;
+}
+
+bool CMouseCom::sendSensorRequest(int id)
+{
+    //------ form String ------
+    int l;
+    char buffer [18];
+    //String: "S ID"
+    l = sprintf (buffer, "S %02d\n", id);
+    //------ Send and Return ------
+    return sendUartMessage(buffer, l);
+}
+
+//transmit function
+bool CMouseCom::sendUartMessage(char buffer[], int l){
+    //----- TX BYTES -----
+
+    if (uart0_sendstream != -1)
+    {
+        int count = write(uart0_sendstream, &buffer[0], l);		//Filestream, bytes to write, number of bytes to write
+        //int count = write(uart0_filestream, &tx_buffer[0], (p_tx_buffer - &tx_buffer[0])); //Filestream, bytes to write, number of bytes to write
+        if (count < 0)
+        {
+            //printf("UART TX error\n");
+            std::cerr << "Error - UART TX ERROR" << std::endl;
+            return false;
+        }
+    }
+    else {
+        //printf("Error: UART not opened\n");
+        std::cerr << "Error - UART Sendstream not opened!" << std::endl;
+        return false;
+    }
+    return true;
+}
+
+
+//Recieving-------------------------------------------------------------------------------------------------
+
+//Waiting loop
 void CMouseCom::MouseInputLoop()
 {
     bool OK = true; //for later Break criteria
@@ -89,6 +182,146 @@ void CMouseCom::MouseInputLoop()
         sleep(10); //waiting for data
     }
 }
+
+//Console recieve function
+void CMouseCom::checkComndConsole()
+{
+    //check for Console Commands
+    //load atomic struct
+    if (DEBUG){std::cout << "loading Console Cmd\n";}
+    Ccmnd tmp = consoleCmnd.load();
+    //check for new commands
+    if(tmp.valid)
+    {
+        if (DEBUG){std::cout << "new Console Cmd read: " << (typCmd)tmp.command << ";" << tmp.val1 << ";" << tmp.val2 << ";" << tmp.val3 <<"\n";}
+        //set false and store
+        tmp.valid = false;
+        consoleCmnd.store(tmp);
+
+        //send Message
+        ReceiveMsg((typCmd)tmp.command, tmp.val1, tmp.val2, tmp.val3);
+    }
+}
+
+//UART recieve function
+int CMouseCom::recieveData()
+{
+    //parsing variables
+    char const separator = ' ';
+    char newArg[MAX_ARG_PER_LINE][MAX_ARG_LENGTH];
+    int arguments[MAX_ARG_PER_LINE] = {0};
+    int i = 0;
+    int count = 0;
+    int rx_length = -1;
+    // Read up to 255 characters from the port if they are there
+    char rx_buffer[256];
+    //int numArgs = 0;
+
+    //----- CHECK FOR ANY RX BYTES -----
+    if (uart0_readstream != -1)
+    {
+        // Read input while new data available
+        while ((rx_length = read(uart0_readstream, (void*)rx_buffer, 255)) != 0)
+        {
+            //rx_length = read(uart0_readstream, (void*)rx_buffer, MAX_RECIEVE_LENGTH);		//Filestream, buffer to store in, number of bytes to read (max)
+            if (rx_length < 0)
+            {
+                //An error occured (will occur if there are no bytes)
+                std::cerr << "Error: UART Read returned no bytes!" << std::endl;
+                return -1;
+            }
+            else if (rx_length == 0)
+            {
+                //No data waiting
+                checkComndConsole(); //see if anything came through the console
+                return 0;
+
+            }
+            else
+            {
+                //Bytes received
+                rx_buffer[rx_length] = '\0';
+                //DEBUGGIN-Comment OUT!
+                if (DEBUG){printf("RX - %i bytes read : %s\n", rx_length, rx_buffer);}
+                
+
+                //parse to arguments
+                //reset i and count
+                i = 0;
+                count = 0;
+                //seperate string
+                char *token = strtok(rx_buffer, &separator);
+                while ((i < MAX_ARG_PER_LINE) && (token))
+                {
+                    strcpy(newArg[i++], token);
+                    token = strtok(nullptr, &separator);
+                    count++;
+                }
+                //convert to int and store
+                if (count == 0 || count < 0)
+                {
+                    //no Arguments read || Error - should never be reached
+                    std::cerr << "This should not have happend, empty RX count!\n";
+                }else {
+                    arguments[0] = (int)newArg[0][0]; //Msg Type is char
+                    arguments[1] = atoi(newArg[1]); //ID is int
+                    for (i=2;i<count;i++) {
+                        //remaining arguments are (4 digit) hex values
+                        arguments[i] = (int)strtol (newArg[i],nullptr,16); //read hex string to int
+                    }
+                }
+                //DEBUG output converted inputs
+                if (DEBUG){
+                    printf("RX - Recieved %d Arguments:",count);
+                    for (int k = 0; k < count; ++k) {
+                        printf(" val%d: %d",k, arguments[k]);
+                    }
+                    printf(" - RX: Msg %c, Id: %d\n", arguments[0], arguments[1]);
+                }
+                //check for Msg Type
+
+                switch (arguments[0]) {
+                case 'A':
+                    //Motor reached pos: IDs chain 1-4 ;servos 0-4
+                    if (arguments[2] == 1){ std::cerr << "Motor Error State!\n";}
+                    ReceiveMsg(PosReached, arguments[1], arguments[2]);
+                    break;
+                case 'S':
+                    //Sensor: IDs chain 1-4; sensor 1
+                case 'P':
+                    //Motor Position: IDs chain 1-4; sensor 1-5
+                    ReceiveMsg(SensorValue, arguments[1], arguments[2]);
+                    break;
+                case 'E':
+                    //EVENT: IDs chain 6; sensors 1-8
+                    break;
+                default:
+                    std::cerr << "unknwon msg type recieved\n";
+                    printf("RX - %i bytes read : %s\n", rx_length, rx_buffer);
+                    break;
+
+                }
+
+                //return 1;
+            }
+
+            checkComndConsole(); //see if anything came through the console
+            //clear array
+            for (i=0;i<count;i++) {
+                arguments[i] = 0;
+            }
+
+        }
+        return 0;
+    } else {
+        std::cerr << "Error: UART Readstream not opened!" << std::endl;
+    }
+    checkComndConsole(); //see if anything came through the console
+
+    return -1;
+}
+
+//Setup-------------------------------------------------------------------------------------------------
 
 void CMouseCom::setup_uart_send()
 {
@@ -196,257 +429,5 @@ void CMouseCom::setup_uart_read()
     tcsetattr(uart0_readstream, TCSANOW, &options);
 
 
-}
-
-//UART-Schnittstelle zu CRPI
-void CMouseCom::ProcessSpine(CMouseCom::typCmd cmd, int val1, int val2, int val3)
-{
-    switch (cmd)
-    {
-    case SetMotorPos:
-        CMouseCom::sendMotor_Serial(val1, val2, val3); //takes ID, Pos, Speed
-        break;
-    case GetSensorValue:
-        CMouseCom::sendSensorRequest(val1); //only takes ID
-        break;
-    default:
-        //NOOOOOOO!
-        std::cerr << "Error - Unknwon UART Send Request!" << std::endl;
-        break;
-    }
-
-}
-
-bool CMouseCom::sendMotor_Serial(int id, int pos, int speed)
-{
-    //------ Calculate adequate centred Value ------
-    //FIXME!!
-    int CentreOffset = 1800;
-    pos = pos + CentreOffset;
-    //------ FORM STRING------
-    int l;
-    char buffer [18];
-    l = sprintf (buffer, "A %d %04x %04x\n", id, pos, speed);
-
-    if (DEBUG){
-        std::cout.write(&buffer[0], l);
-        std::cout << "\n";
-    }
-
-    //----- TX BYTES -----
-
-    if (uart0_sendstream != -1)
-    {
-        int count = write(uart0_sendstream, &buffer[0], l);		//Filestream, bytes to write, number of bytes to write
-        //int count = write(uart0_filestream, &tx_buffer[0], (p_tx_buffer - &tx_buffer[0])); //Filestream, bytes to write, number of bytes to write
-        if (count < 0)
-        {
-            //printf("UART TX error\n");
-            std::cerr << "Error - UART TX ERROR" << std::endl;
-            return false;
-        }
-    }
-    else {
-        //printf("Error: UART not opened\n");
-        std::cerr << "Error - UART Sendstream not opened!" << std::endl;
-        return false;
-    }
-    return true;
-}
-
-bool CMouseCom::sendStreamRequest(int id, int frequency, int amount)
-{
-    std::cerr << "Error - sendStreamRequest not implemented!" << std::endl;
-    //------ CONVERT TO HEX AND FORM STRING------
-    int l;
-    char buffer [18];
-    l = sprintf (buffer, "%d %d %d\n", id, frequency, amount);
-
-    //----- TX BYTES -----
-
-    if (uart0_sendstream != -1)
-    {
-        int count = write(uart0_sendstream, &buffer[0], l);		//Filestream, bytes to write, number of bytes to write
-        if (count < 0)
-        {
-            //printf("UART TX error\n");
-            std::cerr << "Error - UART TX ERROR" << std::endl;
-            return false;
-        }
-    }
-    else {
-        //printf("Error: UART not opened\n");
-        std::cerr << "Error - UART Sendstream not opened!" << std::endl;
-        return false;
-    }
-    return true;
-}
-
-bool CMouseCom::sendSensorRequest(int id)
-{
-    //------ CONVERT TO HEX AND FORM STRING------
-    int l;
-    char buffer [18];
-    l = sprintf (buffer, "S %d\n", id);
-
-
-    //----- TX BYTES -----
-
-    if (uart0_sendstream != -1)
-    {
-        int count = write(uart0_sendstream, &buffer[0], l);		//Filestream, bytes to write, number of bytes to write
-        if (count < 0)
-        {
-            //printf("UART TX error\n");
-            std::cerr << "Error - UART TX ERROR" << std::endl;
-            return false;
-        }
-    }
-    else {
-        //printf("Error: UART not opened\n");
-        std::cerr << "Error: UART Sendstream not opened!" << std::endl;
-        return false;
-    }
-    return true;
-}
-
-int CMouseCom::recieveData()
-{
-    //parsing variables
-    char const separator = ' ';
-    char newArg[MAX_ARG_PER_LINE][MAX_ARG_LENGTH];
-    int arguments[MAX_ARG_PER_LINE] = {0};
-    int i = 0;
-    int count = 0;
-    int rx_length = -1;
-    // Read up to 255 characters from the port if they are there
-    char rx_buffer[256];
-    //int numArgs = 0;
-
-    //----- CHECK FOR ANY RX BYTES -----
-    if (uart0_readstream != -1)
-    {
-        // Read input while new data available
-        while ((rx_length = read(uart0_readstream, (void*)rx_buffer, 255)) != 0)
-        {
-            //rx_length = read(uart0_readstream, (void*)rx_buffer, MAX_RECIEVE_LENGTH);		//Filestream, buffer to store in, number of bytes to read (max)
-            if (rx_length < 0)
-            {
-                //An error occured (will occur if there are no bytes)
-                std::cerr << "Error: UART Read returned no bytes!" << std::endl;
-                return -1;
-            }
-            else if (rx_length == 0)
-            {
-                //No data waiting
-                checkComndConsole(); //see if anything came through the console
-                return 0;
-
-            }
-            else
-            {
-                //Bytes received
-                rx_buffer[rx_length] = '\0';
-                //DEBUGGIN-Comment OUT!
-                if (DEBUG){printf("RX - %i bytes read : %s\n", rx_length, rx_buffer);}
-                
-
-                //parse to arguments
-                //reset i and count
-                i = 0;
-                count = 0;
-                //seperate string
-                char *token = strtok(rx_buffer, &separator);
-                while ((i < MAX_ARG_PER_LINE) && (token))
-                {
-                    strcpy(newArg[i++], token);
-                    token = strtok(nullptr, &separator);
-                    count++;
-                }
-                //convert to int and store
-                if (count == 0 || count < 0)
-                {
-                    //no Arguments read || Error - should never be reached
-                }else {
-                    for (i=0;i<count;i++) {
-                        if (i<2){
-                            //firs position is char(comand), second is int(id)
-                            arguments[i] = atoi(newArg[i]);
-                        }else {
-                        arguments[i] = (int)strtol (newArg[i],nullptr,16); //read hex string to int
-                        }
-                        //if (DEBUG){printf("RX - argument %d = %s\n", i, newArg[i]);}
-                    }
-                }
-                //numArgs = count;
-
-                //DEBUG output converted inputs
-                if (DEBUG){
-                    printf("RX - Recieved %d Arguments:",count);
-                    for (int k = 0; k < count; ++k) {
-                        printf(" val%d: %d",count, arguments[k]);
-                    }
-                    printf("\n");
-                    printf("RX: Msg %c, Id: %d\n", (char)arguments[0], arguments[1]);
-                }
-                //check for Msg Type
-
-                switch ((char)arguments[0]) {
-                case 'A':
-                    //Motor reached pos: IDs chain 1-4 ;servos 0-4
-                    if (arguments[2] == 1){ std::cerr << "Motor Error State!\n";}
-                    ReceiveMsg(PosReached, arguments[1], arguments[2]);
-                    break;
-                case 'S':
-                    //Sensor: IDs chain 1-4; sensor 1
-                case 'P':
-                    //Motor Position: IDs chain 1-4; sensor 1-5
-                    ReceiveMsg(SensorValue, arguments[1], arguments[2]);
-                    break;
-                case 'E':
-                    //EVENT: IDs chain 6; sensors 1-8
-                    break;
-                default:
-                    std::cerr << "unknwon msg type recieved\n";
-                    break;
-
-                }
-
-                //return 1;
-            }
-
-            checkComndConsole(); //see if anything came through the console
-            //clear array
-            for (i=0;i<count;i++) {
-                arguments[i] = 0;
-            }
-
-        }
-        return 0;
-    } else {
-        std::cerr << "Error: UART Readstream not opened!" << std::endl;
-    }
-    checkComndConsole(); //see if anything came through the console
-
-    return -1;
-}
-
-void CMouseCom::checkComndConsole()
-{
-    //check for Console Commands
-    //load atomic struct
-    if (DEBUG){std::cout << "loading Console Cmd\n";}
-    Ccmnd tmp = consoleCmnd.load();
-    //check for new commands
-    if(tmp.valid)
-    {
-        if (DEBUG){std::cout << "new Console Cmd read: " << (typCmd)tmp.command << ";" << tmp.val1 << ";" << tmp.val2 << ";" << tmp.val3 <<"\n";}
-        //set false and store
-        tmp.valid = false;
-        consoleCmnd.store(tmp);
-
-        //send Message
-        ReceiveMsg((typCmd)tmp.command, tmp.val1, tmp.val2, tmp.val3);
-    }
 }
 
