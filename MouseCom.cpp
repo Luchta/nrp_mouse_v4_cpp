@@ -133,7 +133,7 @@ void CMouseCom::setup_uart_send()
     struct termios options;
     tcgetattr(uart0_sendstream, &options);
     options.c_cflag = B1000000 | CS8 | CLOCAL | CREAD;		//<Set baud rate
-    options.c_iflag = IGNPAR;
+    options.c_iflag = IGNPAR | ICRNL;
     options.c_oflag = 0;
     // options.c_lflag = 0;
     options.c_lflag = ICANON;
@@ -382,18 +382,27 @@ int CMouseCom::recieveData()
 
                 //DEBUG output converted inputs
                 if (DEBUG){printf("RX - Recieved: ID: %d, val1: %d, val2: %d\n", arguments[0], arguments[1], arguments[2]);}
-                //check for Msg Type by ID range
-                if (arguments[0] >= MIN_SERVO_ID && arguments[0] <= MAX_SERVO_ID){
-                    //motor IDs 11-14;21-24:31-35 (range 11-35)
-                    ReceiveMsg(PosReached, arguments[0], arguments[1]);
-                }else if (arguments[0] >= MIN_EVENT_ID && arguments[0] <= MAX_EVENT_ID) {
-                    //event IDs 51-58
+                //check for Msg Type
 
-                }else if (arguments[0] >= MIN_SENSOR_ID && arguments[0] <= MAX_SENSOR_ID) {
-                    //sensor IDs 61-64 (knees)
-                    ReceiveMsg(SensorValue, arguments[0], arguments[1]);
-                }else if (arguments[0] >= MIN_STREAM_ID && arguments[0] <= MIN_STREAM_ID) {
-                    //stream IDs 71-74 (knees)
+                switch (arguments[0]) {
+                case 'A':
+                    //Motor reached pos: IDs chain 1-4 ;servos 0-4
+                    if (arguments[2] == 1){ std::cerr << "Motor Error State!\n";}
+                    ReceiveMsg(PosReached, arguments[1], arguments[2]);
+                    break;
+                case 'S':
+                    //Sensor: IDs chain 1-4; sensor 1
+                case 'P':
+                    //Motor Position: IDs chain 1-4; sensor 1-5
+                    ReceiveMsg(SensorValue, arguments[1], arguments[2]);
+                    break;
+                case 'E':
+                    //EVENT: IDs chain 6; sensors 1-8
+                    break;
+                default:
+                    std::cerr << "unknwon msg type recieved\n";
+                    break;
+
                 }
 
                 //return 1;
