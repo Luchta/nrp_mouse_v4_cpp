@@ -12,7 +12,7 @@
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // access control constants
-/*
+
 #define uStepResolution  pRpi->mcs.uStepResolution
 #define uFrontLegStart   pRpi->mcs.uFrontLegStart 
 #define uHindLegStart    pRpi->mcs.uHindLegStart  
@@ -21,7 +21,7 @@
 #define uWalkLevel       pRpi->mcs.uWalkLevel     
 #define uPawLift         pRpi->mcs.uPawLift       
 #define bSingleStep      pRpi->mcs.bSingleStep
-*/
+/*
 #define uStepResolution  14  // length of kinematic-step   (alles in mm)
 #define uFrontLegStart   -10  // x start pos. of pace
 #define uHindLegStart    -20
@@ -30,7 +30,7 @@
 #define uWalkLevel       10  // y walking level of init and walking
 #define uPawLift         10  // H?he ?ber Grund bei forward move
 #define bSingleStep  false
-
+*/
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Base class services
 
@@ -44,10 +44,10 @@ CString CMouseCtrlBase::MsgToString(typDest dest, typCmd cmd, int val1, int val2
 }
 #endif
 
-// Sendfunktion für alle RPI-internen Objekte untereinander und Richtung UART
+// Sendfunktion fÃ¼r alle RPI-internen Objekte untereinander und Richtung UART
 void CMouseCtrlBase::SendMsg(typDest dest, typCmd cmd, int val1, int val2, int val3)   
 {  
-    m_uReplies = 0;      // Empfangszähler rücksetzen
+    m_uReplies = 0;      // EmpfangszÃ¤hler rÃ¼cksetzen
 
     if (dest==Spine) {   // und raus.
         LogMessage(MsgToString(dest, cmd, val1,val2,val3));    // Alles was rausgeht loggen
@@ -82,7 +82,7 @@ void CRPI::DispatchMsg(typDest dest, typCmd cmd, int val1, int val2, int val3)
     LogMessage(MsgToString(dest, cmd, val1,val2,val3));     // log all received messages
 
     switch (dest) {
-    case Ctrl:                    // hier ersma Blitztest, eigentlich über Ctrl-Modul oder Brause über alle Items
+    case Ctrl:                    // hier ersma Blitztest, eigentlich Ã¼ber Ctrl-Modul oder Brause Ã¼ber alle Items
         TrottWalk.ProcessMsg(cmd, val1,val2,val3);  // v1 = time f. init, Trott
         break;
 
@@ -143,17 +143,17 @@ void CMouseLeg::ProcessMsg(typCmd cmd, int val1, int val2, int val3)  // state m
 void CMouseLeg::MoveTo(double x, double y, int time)      // direkt single step to x/y, no trajectory, 
 { 
     vx = vy = 0;
-    step = stepcount = 0;   // muss, weil auch MausInit über PosReached StepNext aufruft!!
+    step = stepcount = 0;   // muss, weil auch MausInit Ã¼ber PosReached StepNext aufruft!!
     jobTime = time;
     ptLeg = CKoord(x,y);
     SetPosition(NextWayPoint());
 }
 
-#ifdef alt  // ausführlich getestet, aber jeder Punkt bei Auftrag gerechnet
+#ifdef alt  // ausfÃ¼hrlich getestet, aber jeder Punkt bei Auftrag gerechnet
 void CMouseLeg::StepStart(double x, double y, int time)   // step mode by trajectory
 { 
     step = 0;                      // cast: Abschneiden gewollt s. jobTime
-    stepcount = (int)abs((long long)(x-ptLeg.x)/uStepResolution);  // nur x, die Maus läuft ja waagerecht.
+    stepcount = (int)abs((long long)(x-ptLeg.x)/uStepResolution);  // nur x, die Maus lÃ¤uft ja waagerecht.
     if (stepcount <= 1)
         MoveTo(x, y, time);          // if Dist < Resolution then Singlestep.
     else {
@@ -175,8 +175,8 @@ bool CMouseLeg::StepNext()
 CLegPos CMouseLeg::NextWayPoint()
 {
     ptLeg.x += vx;  ptLeg.y += vy;               // Vektor auf letzten Punkt addieren
-    double X = ptLeg.x, Y = ptLeg.y;             // Umladen, weil ggf Rückweg höher
-    if (vx<0 && step!=stepcount) Y += uPawLift;  // Rückweg; 1 cm anheben, letzter Step wieder runter
+    double X = ptLeg.x, Y = ptLeg.y;             // Umladen, weil ggf RÃ¼ckweg hÃ¶her
+    if (vx<0 && step!=stepcount) Y += uPawLift;  // RÃ¼ckweg; 1 cm anheben, letzter Step wieder runter
     return (MotBase%10 < 3) ? ikforeleg(X, Y, side)
                             : ikhindleg(X, Y, side);
 }
@@ -189,11 +189,11 @@ void CMouseLeg::SetPosition(CLegPos ang)
 }
 #else
 
-// Punkte werden im Voraus gerechnet (dgNext), während der Motor läuft, besser
+// Punkte werden im Voraus gerechnet (dgNext), wÃ¤hrend der Motor lÃ¤uft, besser
 void CMouseLeg::StepStart(double x, double y, int time)   // step mode by trajectory
 { 
     step = 0;                              // cast: Abschneiden gewollt s. jobTime
-    stepcount = (int)std::abs((long long)(x-ptLeg.x)/uStepResolution);  // nur x, die Maus läuft ja waagerecht.
+    stepcount = (int)std::abs((long long)(x-ptLeg.x)/uStepResolution);  // nur x, die Maus lÃ¤uft ja waagerecht.
     if (stepcount <= 1)
         MoveTo(x, y, time);                  // if Dist < Resolution then Singlestep.
     else {
@@ -210,14 +210,14 @@ bool CMouseLeg::StepNext()
     if (++step > stepcount) return false;  // fertig
     SetPosition(dgNext);                   // vorausberechneten Punkt ausgeben
     if (step < stepcount)                  // wenn nicht letzter Punkt:
-        dgNext = NextWayPoint();             //   neuen Punkt berechnen, solange Motor läuft
+        dgNext = NextWayPoint();             //   neuen Punkt berechnen, solange Motor lÃ¤uft
     return true;                           // weiter gehts
 }
 
 CLegPos CMouseLeg::NextWayPoint()
 {    
-    double X = ptLeg.x+vx, Y = ptLeg.y+vy;        // Nächsten Punkt ab current ptLeg errechnen
-    if (vx<0 && step<stepcount-1) Y += uPawLift;  // Rückweg; 1 cm anheben, letzter Step wieder runter
+    double X = ptLeg.x+vx, Y = ptLeg.y+vy;        // NÃ¤chsten Punkt ab current ptLeg errechnen
+    if (vx<0 && step<stepcount-1) Y += uPawLift;  // RÃ¼ckweg; 1 cm anheben, letzter Step wieder runter
     return (MotBase%10 < 3) ? ikforeleg(X, Y, side)
                             : ikhindleg(X, Y, side);
 }
@@ -243,7 +243,7 @@ void CTrott::ProcessMsg(typCmd cmd, int val1, int val2, int val3)
         SendMsg(LegHR, MoveLeg, uStepLengthH+uHindLegStart,  uWalkLevel, val1);
         SendMsg(LegFL, MoveLeg, uStepLengthF+uFrontLegStart, uWalkLevel, val1);
         SendMsg(LegFR, MoveLeg,            uFrontLegStart, uWalkLevel, val1);
-        m_uExpReplies=40;  vorne=true;   // 40: damit StepDone nicht zum Schrittwechsel führt...!
+        m_uExpReplies=40;  vorne=true;   // 40: damit StepDone nicht zum Schrittwechsel fÃ¼hrt...!
         break;
 
     case Trott:

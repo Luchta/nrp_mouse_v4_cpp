@@ -14,10 +14,10 @@ set(CMAKE_AUTOMOC ON)
 # Create a list with all .cpp source files
 set( project_sources
    main.cpp
-   kinematics.cpp
+   Kinematics.cpp
    RPI.cpp
-   Mouse_UI.cpp
-   Mouse_COM.cpp
+   MouseUI.cpp
+   MouseCom.cpp
 )
 
 add_executable(${PROJECT_NAME} ${project_sources})

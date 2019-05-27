@@ -27,7 +27,7 @@ public:
     uStepLengthF    = 70;  // length of one leg move on the ground
     uStepLengthH    = 70;  // length of one leg move on the ground
     uWalkLevel      = 10;  // y walking level of init and walking 
-    uPawLift        = 10;  // Höhe über Grund bei forward move
+    uPawLift        = 10;  // HÃ¶he Ã¼ber Grund bei forward move
     bSingleStep = false;
   }
 
@@ -40,8 +40,8 @@ public:
 class CRPI;
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Basisklasse für alle: Msg-Verkehr, Logging, StateCtrl
-class CMouseCtrlBase : public mouse_com
+// Basisklasse fÃ¼r alle: Msg-Verkehr, Logging, StateCtrl
+class CMouseCtrlBase : public CMouseCom
 {
 public:
   CMouseCtrlBase()  { m_uState=0; } //CMouseCtrlBase(CRPI& r) : rpi(r) { m_uState=0;  }
@@ -65,7 +65,7 @@ protected:
 };
 
 #ifdef _WINDOWS
-extern void ProcessSpine(CMouseCtrlBase::typCmd cmd, int val1=0, int val2=0, int val3=0);   // nur f. Simulation, in echt über UART, s. CMouseCtrlBase::SendMsg
+extern void ProcessSpine(CMouseCtrlBase::typCmd cmd, int val1=0, int val2=0, int val3=0);   // nur f. Simulation, in echt Ã¼ber UART, s. CMouseCtrlBase::SendMsg
 extern void LogMessage(CString str);
 #endif
 
@@ -118,12 +118,13 @@ private:
 // main module of RPI Software
 class CRPI : public CMouseCtrlBase
 {
-  friend CMouseCtrlBase;  // damit der den DispatchMsg verwenden darf, aber außerhalb niemand!
+  friend CMouseCtrlBase;  // damit der den DispatchMsg verwenden darf, aber auÃŸerhalb niemand!
 
 // construction
 public:
   CRPI() {}
-  CMousCtrlSet& InitRPI() { 
+  CMousCtrlSet& InitRPI() {
+    pRpi = this; //der eigene pRpi -Pointer sollt  ssh. auch besetzt sein.
     HindLegL.SetType(13, this);  HindLegR.SetType(23, this);  TrottWalk.Init(this);
     ForeLegR.SetType(21, this);  ForeLegL.SetType(11, this);  return mcs; } 
   virtual ~CRPI() {}
