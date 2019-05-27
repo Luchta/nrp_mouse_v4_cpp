@@ -188,7 +188,7 @@ void CMouseCom::setup_uart_read()
     struct termios options;
     tcgetattr(uart0_readstream, &options);
     options.c_cflag = B1000000 | CS8 | CLOCAL | CREAD;		//<Set baud rate
-    options.c_iflag = IGNPAR;
+    options.c_iflag = IGNPAR | ICRNL; //ICRNL needed for putty and minicom else RPI will not recieve \n, do not know why!!!!
     options.c_oflag = 0;
     //options.c_lflag = 0;
     options.c_lflag = ICANON;
@@ -219,6 +219,10 @@ void CMouseCom::ProcessSpine(CMouseCom::typCmd cmd, int val1, int val2, int val3
 
 bool CMouseCom::sendMotor_Serial(int id, int pos, int speed)
 {
+    //------ Calculate adequate centred Value ------
+    //FIXME!!
+    int CentreOffset = 1800;
+    pos = pos + CentreOffset;
     //------ FORM STRING------
     int l;
     char buffer [18];
