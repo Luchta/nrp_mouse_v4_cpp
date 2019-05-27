@@ -360,7 +360,7 @@ int CMouseCom::recieveData()
                 while ((i < MAX_ARG_PER_LINE) && (token))
                 {
                     strcpy(newArg[i++], token);
-                    token = strtok(NULL, &separator);
+                    token = strtok(nullptr, &separator);
                     count++;
                 }
                 //convert to int and store
@@ -372,10 +372,10 @@ int CMouseCom::recieveData()
                         if (i<2){
                             //firs position is char(comand), second is int(id)
                             arguments[i] = atoi(newArg[i]);
+                        }else {
+                        arguments[i] = (int)strtol (newArg[i],nullptr,16); //read hex string to int
                         }
                         //if (DEBUG){printf("RX - argument %d = %s\n", i, newArg[i]);}
-                        arguments[i] = (int)strtol (newArg[i],nullptr,16); //read hex string to int
-                        //arguments[i] = atoi (newArg[i]);
                     }
                 }
                 //numArgs = count;
@@ -387,11 +387,11 @@ int CMouseCom::recieveData()
                         printf(" val%d: %d",count, arguments[k]);
                     }
                     printf("\n");
-                    printf("RX: Msg %c, Id: %d", arguments[0], arguments[1]);
+                    printf("RX: Msg %c, Id: %d\n", (char)arguments[0], arguments[1]);
                 }
                 //check for Msg Type
 
-                switch (arguments[0]) {
+                switch ((char)arguments[0]) {
                 case 'A':
                     //Motor reached pos: IDs chain 1-4 ;servos 0-4
                     if (arguments[2] == 1){ std::cerr << "Motor Error State!\n";}
